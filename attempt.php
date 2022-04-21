@@ -21,6 +21,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
@@ -200,72 +201,76 @@ $navinfo->total = $questionscount;
 $PAGE->navbar->add(get_string('nav_question_no', 'studentquiz', $navinfo));
 
 echo $OUTPUT->header();
+$groupid = groups_get_activity_group($cm);
+if ($error = utils::can_access_all_group($context, $groupid, $cm)) {
+    echo $OUTPUT->notification($error, 'error', false);
+} else {
+    $info = new stdClass();
+    $info->total = $questionscount;
+    $info->group = 0;
+    $info->one = max($slot - (!$isanswered ? 1 : 0), 0);
+    $texttotal = get_string('num_questions', 'studentquiz', $questionscount);
+    $html = '';
 
-$info = new stdClass();
-$info->total = $questionscount;
-$info->group = 0;
-$info->one = max($slot - (!$isanswered ? 1 : 0), 0);
-$texttotal = get_string('num_questions', 'studentquiz', $questionscount);
-$html = '';
+    $html .= html_writer::div($output->render_progress_bar($info, $texttotal, true), '', array('title' => $texttotal));
 
-$html .= html_writer::div($output->render_progress_bar($info, $texttotal, true), '', array('title' => $texttotal));
+    // Render the question title.
+    $html .= html_writer::tag('h2', $title);
 
-// Render the question title.
-$html .= html_writer::tag('h2', $title);
+    // Start the question form.
 
-// Start the question form.
+    $html .= html_writer::start_tag('form', array('method' => 'post', 'action' => $actionurl,
+            'enctype' => 'multipart/form-data', 'id' => 'responseform'));
 
-$html .= html_writer::start_tag('form', array('method' => 'post', 'action' => $actionurl,
-    'enctype' => 'multipart/form-data', 'id' => 'responseform'));
+    $html .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'cmid', 'value' => $cmid, 'class' => 'cmid_field'));
 
-$html .= html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'cmid', 'value' => $cmid, 'class' => 'cmid_field'));
+    // Output the question.
+    $html .= $questionusage->render_question($slot, $options, (string)$slot);
 
-// Output the question.
-$html .= $questionusage->render_question($slot, $options, (string)$slot);
+    // Output the state change select box.
+    $statechangehtml = $output->render_state_choice($question, $course->id, $cmid);
+    $navigationhtml = $output->render_navigation_bar($hasprevious, $hasnext, $isanswered);
 
-// Output the state change select box.
-$statechangehtml = $output->render_state_choice($question, $course->id, $cmid);
-$navigationhtml = $output->render_navigation_bar($hasprevious, $hasnext, $isanswered);
+    // Change state will always first thing below navigation.
+    $orders  = [
+            $navigationhtml,
+            $statechangehtml
+    ];
 
-// Change state will always first thing below navigation.
-$orders  = [
-    $navigationhtml,
-    $statechangehtml
-];
-
-if ($isanswered) {
-    // Get output the rating.
-    $ratinghtml = $output->render_rate($question->id, $studentquiz->forcerating);
-    // Get output the comments.
-    $commenthtml = $output->render_comment($cmid, $question->id, $userid, $highlight);
-    // If force rating and commenting, then it will above navigation.
-    if ($studentquiz->forcerating && $studentquiz->forcecommenting) {
-         $orders = array_merge([
-             $ratinghtml,
-             $commenthtml
-         ], $orders);
-    } else {
-        // If force rating, then it will be render first.
-        if ($studentquiz->forcerating) {
-            array_unshift($orders, $ratinghtml);
+    if ($isanswered) {
+        // Get output the rating.
+        $ratinghtml = $output->render_rate($question->id, $studentquiz->forcerating);
+        // Get output the comments.
+        $commenthtml = $output->render_comment($cmid, $question->id, $userid, $highlight);
+        // If force rating and commenting, then it will above navigation.
+        if ($studentquiz->forcerating && $studentquiz->forcecommenting) {
+            $orders = array_merge([
+                    $ratinghtml,
+                    $commenthtml
+            ], $orders);
         } else {
-            $orders[] = $ratinghtml;
-        }
-        // If force commenting, then it will be render first.
-        if ($studentquiz->forcecommenting) {
-            array_unshift($orders, $commenthtml);
-        } else {
-            $orders[] = $commenthtml;
+            // If force rating, then it will be render first.
+            if ($studentquiz->forcerating) {
+                array_unshift($orders, $ratinghtml);
+            } else {
+                $orders[] = $ratinghtml;
+            }
+            // If force commenting, then it will be render first.
+            if ($studentquiz->forcecommenting) {
+                array_unshift($orders, $commenthtml);
+            } else {
+                $orders[] = $commenthtml;
+            }
         }
     }
+
+    foreach ($orders as $v) {
+        $html .= $v;
+    }
+
+    $html .= html_writer::end_tag('form');
+
+    echo $html;
 }
-
-foreach ($orders as $v) {
-    $html .= $v;
-}
-
-$html .= html_writer::end_tag('form');
-
-echo $html;
 
 echo $OUTPUT->footer();

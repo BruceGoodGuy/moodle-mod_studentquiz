@@ -46,7 +46,11 @@ class utils {
     const DAILY_DIGEST_TYPE = 1;
     /** @var int Weekly digest type */
     const WEEKLY_DIGEST_TYPE = 2;
-
+    /**
+     * Special constant indicating that groups are not used (does not apply
+     * to posts).
+     */
+    const NO_GROUPS = -1;
     /** @var string - Atto Toolbar define. */
     const ATTO_TOOLBAR = 'style1 = bold, italic
 style2 = link, unlink
@@ -479,7 +483,7 @@ style5 = html';
      * @throws coding_exception if empty or invalid context submitted when $groupid = USERSWITHOUTGROUP
      */
     public static function sq_groups_get_members_join($groupid, $useridcolumn, $context = null) {
-        if (!$groupid) {
+        if (!$groupid  || has_capability('moodle/site:accessallgroups', $context)) {
             $joins = '';
             $wheres = '';
             $params = [];
@@ -802,5 +806,27 @@ style5 = html';
         global $DB;
 
         return $DB->get_records_list('question', 'id', $questionids, '', 'id, name');
+    }
+
+    /**
+     * Check if user can access to all group.
+     *
+     * @param \context $context Course context or a context within a course.
+     * @param int $groupid Group id from which the users will be obtained
+     * @param object $cm - full cm object
+     * @return string
+     */
+    public static function can_access_all_group(\context $context, int $groupid, object $cm): string {
+        global $USER;
+        $errormessage = '';
+        if (intval(groups_get_activity_groupmode($cm)) === SEPARATEGROUPS &&
+                ($groupid !== self::NO_GROUPS && !groups_has_membership($cm, $USER->id))) {
+            try {
+                require_capability('moodle/site:accessallgroups', $context);
+            } catch (\required_capability_exception $exception) {
+                $errormessage = $exception->getMessage();
+            }
+        }
+        return $errormessage;
     }
 }

@@ -23,6 +23,7 @@
  */
 
 use mod_studentquiz\commentarea\container;
+use mod_studentquiz\utils;
 
 require_once('../../config.php');
 require_once($CFG->dirroot . '/mod/studentquiz/locallib.php');
@@ -50,32 +51,37 @@ require_login($cm->course, false, $cm);
 
 // Load context.
 $context = context_module::instance($cm->id);
-
 // Check to see if any roles setup has been changed since we last synced the capabilities.
 \mod_studentquiz\access\context_override::ensure_permissions_are_right($context);
 $studentquiz = mod_studentquiz_load_studentquiz($cm->id, $context->id);
+$groupid = groups_get_activity_group($cm);
+if (!$error = utils::can_access_all_group($context, $groupid, $cm)) {
+    // Comment access check.
+    $question = question_bank::load_question($questionid);
+    if (!$question) {
+        throw new moodle_exception("invalidcommenthistorypermission");
+    }
 
-// Comment access check.
-$question = question_bank::load_question($questionid);
-if (!$question) {
-    throw new moodle_exception("invalidcommenthistorypermission");
+    $container = new container($studentquiz, $question, $cm, $context, $USER);
+    if (!$container->can_view_username() && !$USER->id == $comment->userid) {
+        throw new moodle_exception("invalidcommenthistorypermission");
+    }
+
+    $actionurl = new moodle_url('/mod/studentquiz/commenthistory.php',
+            ['cmid' => $cmid, 'questionid' => $questionid, 'commentid' => $commentid]);
+
+    $renderer = $PAGE->get_renderer('mod_studentquiz', 'comment_history');
+    $title = get_string('commenthistory', 'mod_studentquiz');
+    $PAGE->set_pagelayout('popup');
+    $PAGE->set_title($title);
+    $PAGE->set_heading($title);
+    $PAGE->set_url($actionurl);
 }
-
-$container = new container($studentquiz, $question, $cm, $context, $USER);
-if (!$container->can_view_username() && !$USER->id == $comment->userid) {
-    throw new moodle_exception("invalidcommenthistorypermission");
-}
-
-$actionurl = new moodle_url('/mod/studentquiz/commenthistory.php',
-        ['cmid' => $cmid, 'questionid' => $questionid, 'commentid' => $commentid]);
-
-$renderer = $PAGE->get_renderer('mod_studentquiz', 'comment_history');
-$title = get_string('commenthistory', 'mod_studentquiz');
-$PAGE->set_pagelayout('popup');
-$PAGE->set_title($title);
-$PAGE->set_heading($title);
-$PAGE->set_url($actionurl);
 
 echo $OUTPUT->header();
-echo $renderer->render_comment_history($questionid, $commentid, $cmid);
+if ($error) {
+    echo $OUTPUT->notification($error, 'error', false);
+} else {
+    echo $renderer->render_comment_history($questionid, $commentid, $cmid);
+}
 echo $OUTPUT->footer();

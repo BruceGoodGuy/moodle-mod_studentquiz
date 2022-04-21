@@ -24,6 +24,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/viewlib.php');
@@ -41,10 +42,10 @@ if (!$cmid = optional_param('cmid', 0, PARAM_INT)) {
 // And when doing that, offer course, context and studentquiz object over it, which all following actions can use.
 $report = new mod_studentquiz_report($cmid);
 require_login($report->get_course(), false, $report->get_coursemodule());
-
 $course = $report->get_course();
 $context = $report->get_context();
 $cm = $report->get_coursemodule();
+$groupid = groups_get_activity_group($cm);
 $studentquiz = mod_studentquiz_load_studentquiz($cmid, $context->id);
 
 // If for some weired reason a studentquiz is not aggregated yet, now would be a moment to do so.
@@ -92,7 +93,6 @@ if ((optional_param('approveselected', false, PARAM_BOOL) || optional_param('del
             get_string('studentquiz:changestate', 'studentquiz')), null, \core\output\notification::NOTIFY_WARNING);
     }
 }
-
 // Since this page has 2 forms interacting with each other, all params must be passed in GET, thus
 // $PAGE->url will be as it has recieved the request.
 $PAGE->set_url($view->get_pageurl());
@@ -109,8 +109,13 @@ mod_studentquiz_completion($course, $cm);
 $renderer->add_fake_block($report);
 
 echo $OUTPUT->header();
-// Render view.
-echo $renderer->render_overview($view);
+if ($error = utils::can_access_all_group($context, $groupid, $cm)) {
+    // Render error.
+    echo $OUTPUT->notification($error, 'error', false);
+} else {
+    // Render view.
+    echo $renderer->render_overview($view);
+}
 
 $PAGE->requires->js_init_code($renderer->render_bar_javascript_snippet(), true);
 $PAGE->requires->js_call_amd('mod_studentquiz/studentquiz', 'setFocus');

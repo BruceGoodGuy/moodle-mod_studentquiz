@@ -21,6 +21,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/viewlib.php');
@@ -28,7 +29,6 @@ require_once(__DIR__ . '/viewlib.php');
 // Get parameters.
 $cmid = required_param('cmid', PARAM_INT);
 $questionid = required_param('questionid', PARAM_INT);
-
 // Load course and course module requested.
 if ($cmid) {
     if (!$module = get_coursemodule_from_id('studentquiz', $cmid)) {
@@ -51,21 +51,27 @@ $context = context_module::instance($module->id);
 \mod_studentquiz\access\context_override::ensure_permissions_are_right($context);
 
 $studentquiz = mod_studentquiz_load_studentquiz($module->id, $context->id);
+$cm = get_coursemodule_from_id('studentquiz', $cmid);
+$groupid = groups_get_activity_group($cm);
 
-// Lookup question.
-try {
-    $question = question_bank::load_question($questionid);
-    // A user can view this page if it is his question or he is allowed to view others questions.
-    if ($question->createdby != $USER->id) {
-        require_capability('mod/studentquiz:previewothers', $context);
-    }
+if (!$error = utils::can_access_all_group($context, $groupid, $cm)) {
+    // Lookup question.
+    try {
+        $question = question_bank::load_question($questionid);
+        // A user can view this page if it is his question or he is allowed to view others questions.
+        if ($question->createdby != $USER->id) {
+            require_capability('mod/studentquiz:previewothers', $context);
+        }
 
-    // We have to check if the question is really from this module, limit questions to categories used in this module.
-    $allowedcategories = question_categorylist($studentquiz->categoryid);
-    if (!in_array($question->category, $allowedcategories)) {
+        // We have to check if the question is really from this module, limit questions to categories used in this module.
+        $allowedcategories = question_categorylist($studentquiz->categoryid);
+        if (!in_array($question->category, $allowedcategories)) {
+            $question = null;
+        }
+    } catch (dml_missing_record_exception $e) {
         $question = null;
     }
-} catch (dml_missing_record_exception $e) {
+} else {
     $question = null;
 }
 
@@ -73,7 +79,6 @@ try {
 $actionurl = new moodle_url('/mod/studentquiz/preview.php', array('cmid' => $cmid, 'questionid' => $questionid));
 $previewid = optional_param('previewid', 0, PARAM_INT);
 $highlight = optional_param('highlight', 0, PARAM_INT);
-
 if ($question) {
     if ($previewid) {
         $params = ['previewid' => $previewid];
@@ -127,7 +132,7 @@ if ($question) {
     $title = get_string('previewquestion', 'question', format_string($question->name));
     $headtags = question_engine::initialise_js() . $quba->render_question_head_html($slot);
 } else {
-    $title = get_string('deletedquestion', 'qtype_missingtype');
+    $title = $error ? 'Error' : get_string('deletedquestion', 'qtype_missingtype');
 }
 $output = $PAGE->get_renderer('mod_studentquiz', 'attempt');
 $PAGE->set_pagelayout('popup');
@@ -155,6 +160,10 @@ if ($question) {
 
     echo $output->render_comment_nav_tabs($cmid, $question, $USER->id, $highlight, $studentquiz->privatecommenting);
 } else {
-    echo $OUTPUT->notification(get_string('deletedquestiontext', 'qtype_missingtype'));
+    $errormessage = $OUTPUT->notification(get_string('deletedquestiontext', 'qtype_missingtype'));
+    if ($error) {
+        $errormessage = $error;
+    }
+    echo $OUTPUT->notification($error, 'error', false);
 }
 echo $OUTPUT->footer();

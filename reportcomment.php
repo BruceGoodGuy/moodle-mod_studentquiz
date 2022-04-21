@@ -33,7 +33,6 @@ $cmid = required_param('cmid', PARAM_INT);
 $questionid = required_param('questionid', PARAM_INT);
 $commentid = required_param('commentid', PARAM_INT);
 $referer = optional_param('referer', null, PARAM_URL);
-
 $pageparams = [
         'cmid' => $cmid,
         'questionid' => $questionid,
@@ -41,7 +40,7 @@ $pageparams = [
 ];
 
 list($question, $cm, $context, $studentquiz) = utils::get_data_for_comment_area($pageparams['questionid'], $pageparams['cmid']);
-
+$groupid = groups_get_activity_group($cm);
 // Authentication check.
 require_login($cm->course, false, $cm);
 
@@ -101,12 +100,18 @@ if ($form->is_cancelled()) {
 echo $OUTPUT->header();
 // If the form has been submitted successfully, send the email.
 $formdata = $form->get_data();
-if ($formdata) {
-    utils::send_report($formdata, $commentarea->get_reporting_emails(), $customdata, $form->get_options());
-    echo $OUTPUT->box(get_string('report_comment_feedback', 'studentquiz'));
-    echo $OUTPUT->continue_button($referer);
+if ($error = utils::can_access_all_group($context, $groupid, $cm)) {
+    // Render error.
+    echo $OUTPUT->notification($error, 'error', false);
 } else {
-    // Show the form.
-    echo $form->display();
+    // Render view.
+    if ($formdata) {
+        utils::send_report($formdata, $commentarea->get_reporting_emails(), $customdata, $form->get_options());
+        echo $OUTPUT->box(get_string('report_comment_feedback', 'studentquiz'));
+        echo $OUTPUT->continue_button($referer);
+    } else {
+        // Show the form.
+        echo $form->display();
+    }
 }
 echo $OUTPUT->footer();
