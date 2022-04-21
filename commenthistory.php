@@ -23,6 +23,7 @@
  */
 
 use mod_studentquiz\commentarea\container;
+use mod_studentquiz\utils;
 
 require_once('../../config.php');
 require_once($CFG->dirroot . '/mod/studentquiz/locallib.php');
@@ -54,6 +55,7 @@ $context = context_module::instance($cm->id);
 // Check to see if any roles setup has been changed since we last synced the capabilities.
 \mod_studentquiz\access\context_override::ensure_permissions_are_right($context);
 $studentquiz = mod_studentquiz_load_studentquiz($cm->id, $context->id);
+$groupid = groups_get_activity_group($cm);
 
 // Comment access check.
 $question = question_bank::load_question($questionid);
@@ -75,7 +77,9 @@ $PAGE->set_pagelayout('popup');
 $PAGE->set_title($title);
 $PAGE->set_heading($title);
 $PAGE->set_url($actionurl);
-
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    utils::render_error_message($errormessage, $title);
+}
 echo $OUTPUT->header();
 echo $renderer->render_comment_history($questionid, $commentid, $cmid);
 echo $OUTPUT->footer();

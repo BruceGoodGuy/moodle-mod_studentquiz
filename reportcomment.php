@@ -41,6 +41,7 @@ $pageparams = [
 ];
 
 list($question, $cm, $context, $studentquiz) = utils::get_data_for_comment_area($pageparams['questionid'], $pageparams['cmid']);
+$groupid = groups_get_activity_group($cm);
 
 // Authentication check.
 require_login($cm->course, false, $cm);
@@ -76,6 +77,9 @@ if ($pagename) {
     $PAGE->navbar->add($pagename);
 }
 
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    utils::render_error_message($errormessage, $pagename);
+}
 // Keep referer url.
 $action = (new moodle_url($PAGE->url, ['referer' => $referer]))->out(false);
 

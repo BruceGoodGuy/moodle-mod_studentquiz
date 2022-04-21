@@ -24,6 +24,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/viewlib.php');
@@ -36,7 +37,6 @@ if (!$cmid = optional_param('cmid', 0, PARAM_INT)) {
     // but moodle allows to view a mod page with parameter id in place of cmid.
     $_GET['cmid'] = $cmid;
 }
-
 // TODO: make course-, context- and login-check in a better starting class (not magically hidden in "report").
 // And when doing that, offer course, context and studentquiz object over it, which all following actions can use.
 $report = new mod_studentquiz_report($cmid);
@@ -45,6 +45,7 @@ require_login($report->get_course(), false, $report->get_coursemodule());
 $course = $report->get_course();
 $context = $report->get_context();
 $cm = $report->get_coursemodule();
+$groupid = groups_get_activity_group($cm);
 $studentquiz = mod_studentquiz_load_studentquiz($cmid, $context->id);
 
 // If for some weired reason a studentquiz is not aggregated yet, now would be a moment to do so.
@@ -76,7 +77,6 @@ $renderer->init_question_table_wanted_columns();
 
 // Load view.
 $view = new mod_studentquiz_view($course, $context, $cm, $studentquiz, $USER->id, $report);
-
 // Redirect to overview if there are no selected questions.
 if ((optional_param('approveselected', false, PARAM_BOOL) || optional_param('deleteselected', false, PARAM_BOOL)) &&
         !optional_param('confirm', '', PARAM_ALPHANUM) ||
@@ -92,14 +92,15 @@ if ((optional_param('approveselected', false, PARAM_BOOL) || optional_param('del
             get_string('studentquiz:changestate', 'studentquiz')), null, \core\output\notification::NOTIFY_WARNING);
     }
 }
-
 // Since this page has 2 forms interacting with each other, all params must be passed in GET, thus
 // $PAGE->url will be as it has recieved the request.
 $PAGE->set_url($view->get_pageurl());
 $PAGE->set_title($view->get_title());
 $PAGE->set_heading($COURSE->fullname);
 $PAGE->set_cm($cm, $course);
-
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    utils::render_error_message($errormessage, $view->get_title());
+}
 // Process actions.
 $view->process_actions();
 

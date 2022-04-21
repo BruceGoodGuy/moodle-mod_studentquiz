@@ -17,6 +17,7 @@
 namespace mod_studentquiz;
 
 use core\dml\sql_join;
+use core\session\exception;
 use core_courseformat\output\local\state\cm;
 use core_question\bank\search\hidden_condition;
 use external_value;
@@ -46,7 +47,6 @@ class utils {
     const DAILY_DIGEST_TYPE = 1;
     /** @var int Weekly digest type */
     const WEEKLY_DIGEST_TYPE = 2;
-
     /** @var string - Atto Toolbar define. */
     const ATTO_TOOLBAR = 'style1 = bold, italic
 style2 = link, unlink
@@ -339,7 +339,7 @@ style5 = html';
      * @return boolean
      */
     public static function allow_self_comment_and_rating_in_preview_mode(\question_definition $question, $cmid,
-             $type = self::COMMENT_TYPE_PUBLIC, $privatecommenting = false) {
+            $type = self::COMMENT_TYPE_PUBLIC, $privatecommenting = false) {
         global $USER, $PAGE;
 
         $context = \context_module::instance($cmid);
@@ -479,7 +479,7 @@ style5 = html';
      * @throws coding_exception if empty or invalid context submitted when $groupid = USERSWITHOUTGROUP
      */
     public static function sq_groups_get_members_join($groupid, $useridcolumn, $context = null) {
-        if (!$groupid) {
+        if (!$groupid || has_capability('moodle/site:accessallgroups', $context)) {
             $joins = '';
             $wheres = '';
             $params = [];
@@ -589,8 +589,8 @@ style5 = html';
      */
     public static function get_user_profile_url(int $userid, int $courseid): moodle_url {
         return new moodle_url('/user/view.php', [
-            'id' => $userid,
-            'course' => $courseid
+                'id' => $userid,
+                'course' => $courseid
         ]);
     }
 
@@ -606,7 +606,7 @@ style5 = html';
         global $DB;
 
         $studentquizprogress = $DB->get_record('studentquiz_progress', array('questionid' => $qid,
-            'userid' => $userid, 'studentquizid' => $studentquizid));
+                'userid' => $userid, 'studentquizid' => $studentquizid));
         if ($studentquizprogress == false) {
             $studentquizprogress = mod_studentquiz_get_studenquiz_progress_class($qid, $userid, $studentquizid);
         }
@@ -686,8 +686,8 @@ style5 = html';
                            AND NOT EXISTS (SELECT 1 FROM {studentquiz_state_history} WHERE questionid = q.id)";
 
             $params = [
-                'coursemodule' => $studentquiz->coursemodule,
-                'categoryid' => $studentquiz->categoryid
+                    'coursemodule' => $studentquiz->coursemodule,
+                    'categoryid' => $studentquiz->categoryid
             ];
             $sqquestions = $DB->get_recordset_sql($sql, $params);
 
@@ -695,7 +695,7 @@ style5 = html';
                 foreach ($sqquestions as $sqquestion) {
                     // Create action new question by onwer.
                     self::question_save_action($sqquestion->questionid, $sqquestion->createdby,
-                        studentquiz_helper::STATE_NEW, $sqquestion->timecreated);
+                            studentquiz_helper::STATE_NEW, $sqquestion->timecreated);
 
                     if (!($sqquestion->state == studentquiz_helper::STATE_NEW)) {
                         self::question_save_action($sqquestion->questionid, get_admin()->id, $sqquestion->state, null);
@@ -802,5 +802,46 @@ style5 = html';
         global $DB;
 
         return $DB->get_records_list('question', 'id', $questionids, '', 'id, name');
+    }
+
+    /**
+     * Makes security checks for viewing. Will return error message if user
+     * cannot access student quiz
+     *
+     * @param \context $context Course context or a context within a course.
+     * @param int $groupid Group id from which the users will be obtained
+     * @param object $cm - full cm object
+     * @return string
+     */
+    public static function require_view(\context $context, int $groupid, object $cm): string {
+        global $USER;
+        $errormessage = '';
+        if (intval(groups_get_activity_groupmode($cm)) !== NOGROUPS &&
+                ($groupid !== USERSWITHOUTGROUP && !groups_has_membership($cm, $USER->id))) {
+            try {
+                require_capability('moodle/site:accessallgroups', $context);
+            } catch (\required_capability_exception $exception) {
+                $errormessage = $exception->getMessage();
+            }
+        }
+        return $errormessage;
+    }
+
+    /**
+     * Show error message layout
+     *
+     * @param string $errormessage Error message.
+     * @param string $title Page's title.
+     * @return void
+     */
+    public static function render_error_message(string $errormessage, string $title) : void {
+        global $OUTPUT, $PAGE;
+        $PAGE->set_title($title);
+        // For remove settings menu
+        $PAGE->settingsnav->find('modulesettings', \navigation_node::TYPE_SETTING)->remove();
+        echo $OUTPUT->header();
+        echo $OUTPUT->notification($errormessage, 'error', false);
+        echo $OUTPUT->footer();
+        exit();
     }
 }

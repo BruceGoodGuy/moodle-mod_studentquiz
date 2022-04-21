@@ -123,3 +123,47 @@ Feature: Students can create questions and practice in separate groups.
     And I should see "Separate groups: Group 1"
     And "Student One" "text" should appear before "Student Two" "text"
     And I should not see "Student Three"
+
+  @javascript
+  Scenario: Students without group will not be accessed Student Quiz activity.
+    Given the following "users" exist:
+      | username | firstname | lastname | email                |
+      | student4 | Student   | Four     | student4@example.com |
+    And the following "course enrolments" exist:
+      | user     | course | role    |
+      | student4 | C1     | student |
+    When I am on the "C1" "Course" page logged in as "student4"
+    And I follow "StudentQuiz 1"
+    Then I should see "Sorry, but you do not currently have permissions to do that (Access all groups)."
+
+  @javascript
+  Scenario: Teacher without group can write a comment.
+    Given the following "users" exist:
+      | username |
+      | teacher  |
+    And the following "course enrolments" exist:
+      | user    | course | role           |
+      | teacher | C1     | editingteacher |
+    When I am on the "C1" "Course" page logged in as "admin"
+    And I follow "StudentQuiz 1"
+    And I click on "Create new question" "button"
+    And I set the field "item_qtype_truefalse" to "1"
+    And I click on "Add" "button" in the "Choose a question type to add" "dialogue"
+    And I set the field "Question name" to "Question of Student 1"
+    And I set the field "Question text" to "The correct answer is true"
+    And I press "id_submitbutton"
+    And I log out
+    And I am on the "C1" "Course" page logged in as "teacher"
+    And I follow "StudentQuiz 1"
+    Then I should not see "Sorry, but you do not currently have permissions to do that (Access all groups)."
+    When I click on "Start Quiz" "button"
+    And I set the field "True" to "1"
+    And I press "Check"
+  # Wait for comment area init.
+    And I wait until the page is ready
+  # Enter "Comment 1".
+    And I enter the text "Comment 1" into the "Add public comment" editor
+    And I press "Add comment"
+    And I wait until the page is ready
+    And I wait until ".studentquiz-comment-item:nth-child(1)" "css_element" exists
+    Then I should see "Comment 1" in the ".studentquiz-comment-item:nth-child(1) .studentquiz-comment-text" "css_element"

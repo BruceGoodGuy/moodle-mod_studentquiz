@@ -572,6 +572,7 @@ $string['studentquiz:emailnotifyreviewablequestion'] = 'The user receives an ema
 $string['studentquiz:manage'] = 'Edit and delete questions on StudentQuiz';
 $string['studentquiz:organize'] = 'Move questions into categories on StudentQuiz';
 $string['studentquiz:pinquestion'] = 'Pin questions in StudentQuiz';
+$string['studentquiz:preview'] = 'Preview questions';
 $string['studentquiz:previewothers'] = 'Preview questions of others on StudentQuiz';
 $string['studentquiz:submit'] = 'Create questions on StudentQuiz';
 $string['studentquiz:systemnotifytaskdeleteorphanedquestions'] = 'Orphaned questions deleted notification';

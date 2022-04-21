@@ -21,6 +21,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/reportlib.php');
@@ -31,7 +32,15 @@ if (!$cmid) {
 }
 
 $report = new mod_studentquiz_report($cmid);
-require_login($report->get_course(), false, $report->get_coursemodule());
+$cm = $report->get_coursemodule();
+
+require_login($report->get_course(), false, $cm);
+$groupid = groups_get_activity_group($cm);
+$context = $report->get_context();
+
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    utils::render_error_message($errormessage, $report->get_ranking_title());
+}
 
 $PAGE->set_title($report->get_ranking_title());
 $PAGE->set_heading($report->get_heading());
@@ -47,4 +56,4 @@ echo $output->view_rank($report);
 echo $OUTPUT->footer();
 
 // Trigger report rank viewed event.
-mod_studentquiz_reportrank_viewed($report->get_cm_id(), $report->get_context());
+mod_studentquiz_reportrank_viewed($report->get_cm_id(), $context);

@@ -21,6 +21,7 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/questionlib.php');
@@ -45,12 +46,12 @@ if ($cmid) {
 
 // Authentication check.
 require_login($cm->course, false, $cm);
+$groupid = groups_get_activity_group($cm);
+$context = context_module::instance($cm->id);
 
 $attemptid = required_param('id', PARAM_INT);
 $slot = required_param('slot', PARAM_INT);
 $attempt = $DB->get_record('studentquiz_attempt', array('id' => $attemptid));
-
-$context = context_module::instance($cm->id);
 
 // Check to see if any roles setup has been changed since we last synced the capabilities.
 \mod_studentquiz\access\context_override::ensure_permissions_are_right($context);
@@ -198,7 +199,9 @@ $navinfo = new stdClass();
 $navinfo->current = $slot;
 $navinfo->total = $questionscount;
 $PAGE->navbar->add(get_string('nav_question_no', 'studentquiz', $navinfo));
-
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    utils::render_error_message($errormessage, $cm->name);
+}
 echo $OUTPUT->header();
 
 $info = new stdClass();

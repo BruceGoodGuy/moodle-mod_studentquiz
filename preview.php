@@ -21,10 +21,10 @@
  * @copyright  2017 HSR (http://www.hsr.ch)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+use mod_studentquiz\utils;
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/viewlib.php');
-
 // Get parameters.
 $cmid = required_param('cmid', PARAM_INT);
 $questionid = required_param('questionid', PARAM_INT);
@@ -40,18 +40,21 @@ if ($cmid) {
 } else {
     throw new moodle_exception("invalidcoursemodule");
 }
-
+$cm = get_coursemodule_from_id('studentquiz', $cmid);
+$groupid = groups_get_activity_group($cm);
 // Authentication check.
 require_login($module->course, false, $module);
-
 // Load context.
 $context = context_module::instance($module->id);
-
 // Check to see if any roles setup has been changed since we last synced the capabilities.
 \mod_studentquiz\access\context_override::ensure_permissions_are_right($context);
 
 $studentquiz = mod_studentquiz_load_studentquiz($module->id, $context->id);
 
+if ($errormessage = utils::require_view($context, $groupid, $cm)) {
+    $PAGE->set_pagelayout('popup');
+    utils::render_error_message($errormessage, get_string('studentquiz:preview', 'studentquiz'));
+}
 // Lookup question.
 try {
     $question = question_bank::load_question($questionid);
