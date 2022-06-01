@@ -389,12 +389,13 @@ class comment {
         $comment = $this->data;
         $container = $this->get_container();
         $canviewdeleted = $container->can_view_deleted();
+        $stripped = utils::html_to_text($comment->comment);
         $object = new \stdClass();
         $object->id = $comment->id;
         $object->questionid = $comment->questionid;
         $object->parentid = $comment->parentid;
         $object->content = $comment->comment;
-        $object->shortcontent = utils::nice_shorten_text(strip_tags($comment->comment, self::ALLOWABLE_TAGS), self::SHORTEN_LENGTH);
+        $object->shortcontent = utils::nice_shorten_text($stripped, self::SHORTEN_LENGTH);
         $object->numberofreply = $this->get_total_replies();
         $object->plural = $this->get_reply_plural_text($object);
         $object->candelete = $this->can_delete();
