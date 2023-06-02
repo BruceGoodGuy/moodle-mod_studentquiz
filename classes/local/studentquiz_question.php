@@ -261,6 +261,10 @@ class studentquiz_question {
             $DB->set_field('question_versions', 'status', question_version_status::QUESTION_STATUS_HIDDEN,
                 ['questionid' => $this->get_question()->id]);
         } else {
+            if ($type === 'state') {
+                // Update state.
+                $this->data->state = $value;
+            }
             $DB->set_field('studentquiz_question', $type, $value, ['id' => $this->get_id()]);
         }
     }
